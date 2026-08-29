@@ -110,6 +110,83 @@ async function copyText(text) {
   }
 }
 
+// --- Focus trap / modal accessibility helpers ---
+const FOCUSABLE_SELECTORS = 'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
+let _previousActiveElement = null;
+
+function activateModalAccessibility(modal) {
+  if (!modal) return;
+  // store previous active element to restore focus later
+  _previousActiveElement = document.activeElement;
+  // mark modal visible
+  modal.classList.add('active');
+  modal.setAttribute('aria-hidden', 'false');
+  // hide main content from assistive tech
+  const main = document.querySelector('main');
+  if (main) {
+    main.setAttribute('aria-hidden', 'true');
+  }
+
+  // focus first focusable element inside modal
+  const focusable = Array.from(modal.querySelectorAll(FOCUSABLE_SELECTORS)).filter(el => el.offsetParent !== null);
+  if (focusable.length) focusable[0].focus();
+
+  // trap Tab navigation inside modal
+  modal._keydownHandler = function(e) {
+    if (e.key !== 'Tab') return;
+    const focusableInside = Array.from(modal.querySelectorAll(FOCUSABLE_SELECTORS)).filter(el => el.offsetParent !== null);
+    if (focusableInside.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusableInside[0];
+    const last = focusableInside[focusableInside.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
+  document.addEventListener('keydown', modal._keydownHandler);
+
+  // ensure focus does not leave the modal (focusin fallback)
+  modal._focusinHandler = function(e) {
+    if (!modal.contains(e.target)) {
+      const focusableNow = Array.from(modal.querySelectorAll(FOCUSABLE_SELECTORS)).filter(el => el.offsetParent !== null);
+      if (focusableNow.length) focusableNow[0].focus();
+    }
+  };
+  document.addEventListener('focusin', modal._focusinHandler);
+}
+
+function deactivateModalAccessibility(modal) {
+  if (!modal) return;
+  modal.classList.remove('active');
+  modal.setAttribute('aria-hidden', 'true');
+  const main = document.querySelector('main');
+  if (main) {
+    main.removeAttribute('aria-hidden');
+  }
+  if (modal._keydownHandler) {
+    document.removeEventListener('keydown', modal._keydownHandler);
+    delete modal._keydownHandler;
+  }
+  if (modal._focusinHandler) {
+    document.removeEventListener('focusin', modal._focusinHandler);
+    delete modal._focusinHandler;
+  }
+  if (_previousActiveElement && typeof _previousActiveElement.focus === 'function') {
+    _previousActiveElement.focus();
+    _previousActiveElement = null;
+  }
+}
+
 // --- Routing & UI Shell ---
 const routes = {
   home: renderHome,
@@ -378,7 +455,7 @@ function renderTrade(mode='buy') {
 
 function renderMarket() {
   const content = document.querySelector('main');
-  content.innerHTML = '<h2>Market</h2><div id=\"marketList\">Market data will appear here.</div>';
+  content.innerHTML = '<h2>Market</h2><div id="marketList">Market data will appear here.</div>';
   renderMarketData();
 }
 function renderWeb3() {
@@ -456,13 +533,11 @@ function openSendModal() {
     showAlert('Send modal not found in DOM', 'error');
     return;
   }
-  modal.classList.add('active');
-  const first = modal.querySelector('#sendCrypto') || modal.querySelector('input,select,button');
-  if (first) first.focus();
+  activateModalAccessibility(modal);
 }
 function closeSendModal() {
   const modal = document.getElementById('sendModal');
-  if (modal) modal.classList.remove('active');
+  if (modal) deactivateModalAccessibility(modal);
   const amount = document.getElementById('sendAmount');
   const addr = document.getElementById('sendAddress');
   if (amount) amount.value = '';
@@ -474,14 +549,12 @@ function openReceiveModal() {
     showAlert('Receive modal not found in DOM', 'error');
     return;
   }
-  modal.classList.add('active');
-  const first = modal.querySelector('#receiveCrypto') || modal.querySelector('input,select,button');
-  if (first) first.focus();
+  activateModalAccessibility(modal);
   updateReceiveQRCode();
 }
 function closeReceiveModal() {
   const modal = document.getElementById('receiveModal');
-  if (modal) modal.classList.remove('active');
+  if (modal) deactivateModalAccessibility(modal);
 }
 
 async function handleSend(e) {
@@ -680,7 +753,7 @@ function initApp() {
   // wire global modal close on Escape
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+      document.querySelectorAll('.modal.active').forEach(m => deactivateModalAccessibility(m));
     }
   });
 
