@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BestWallet - Crypto Wallet</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          integrity="sha512-papmU7CxKH+IigQ1jmUf/nmaKg2p34nvZJC3PbOs7u+gdZp71GlK5tSGgME2XdHyoW2yrFof9gUap0Rpio6xg=="
+          crossorigin="anonymous" referrerpolicy="no-referrer">
+    <style>
+        .skip-link {
+            position: absolute;
+            left: -999px;
+            top: auto;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
+        .skip-link:focus {
+            left: 1rem;
+            top: 1rem;
+            width: auto;
+            height: auto;
+            background: #111827;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            z-index: 9999;
+        }
+        /* existing styles omitted for brevity in this commit preview */
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <i class="fas fa-wallet" aria-hidden="true"></i>
+                BestWallet
+            </div>
+            <nav class="nav-buttons">
+                <button class="btn-secondary btn-small" onclick="openSettings()" aria-label="Open settings">
+                    <i class="fas fa-cog" aria-hidden="true"></i> Settings
+                </button>
+                <button class="btn-secondary btn-small" onclick="logout()" aria-label="Logout">
+                    <i class="fas fa-sign-out-alt" aria-hidden="true"></i> Logout
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main" role="main" tabindex="-1">
+        <!-- Alert Container -->
+        <div id="alertContainer" aria-live="polite"></div>
+
+        <!-- Dashboard -->
+        <section class="dashboard">
+            <!-- Balance Card -->
+            <div class="balance-card">
+                <div class="balance-label">Total Balance</div>
+                <div class="balance-amount" id="totalBalance">$0.00</div>
+                <div class="balance-info">
+                    <div class="balance-stat">
+                        <span>24h Change</span>
+                        <span id="change24h" class="positive">+$0.00</span>
+                    </div>
+                    <div class="balance-stat">
+                        <span>Today's Profit</span>
+                        <span id="profit" class="positive">+0%</span>
+                    </div>
+                    <div class="balance-stat">
+                        <span>Total Transactions</span>
+                        <span id="txCount">0</span>
+                    </div>
+                </div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+                    <button class="btn-primary" onclick="openSendModal()" style="flex: 1;">
+                        <i class="fas fa-arrow-up" aria-hidden="true"></i> Send
+                    </button>
+                    <button class="btn-primary" onclick="openReceiveModal()" style="flex: 1;">
+                        <i class="fas fa-arrow-down" aria-hidden="true"></i> Receive
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chart Placeholder (replaced with canvas for Chart.js) -->
+            <div class="chart-placeholder">
+                <canvas id="portfolioChart" width="600" height="250" style="max-width:100%; height:250px;"></canvas>
+            </div>
+        </section>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab(event, 'assets')" data-route="assets">
+                <i class="fas fa-coins" aria-hidden="true"></i> Assets
+            </button>
+            <button class="tab" onclick="switchTab(event, 'transactions')" data-route="transactions">
+                <i class="fas fa-history" aria-hidden="true"></i> Transactions
+            </button>
+            <button class="tab" onclick="switchTab(event, 'staking')" data-route="staking">
+                <i class="fas fa-lock" aria-hidden="true"></i> Staking
+            </button>
+        </div>
+
+        <!-- Assets Tab -->
+        <div id="assets" class="tab-content active">
+            <div class="assets-grid" id="assetsContainer">
+                <!-- Assets loaded dynamically -->
+            </div>
+        </div>
+
+        <!-- Transactions Tab -->
+        <div id="transactions" class="tab-content">
+            <div class="transaction-list" id="transactionsContainer">
+                <!-- Transactions loaded dynamically -->
+            </div>
+        </div>
+
+        <!-- Staking Tab -->
+        <div id="staking" class="tab-content">
+            <div class="assets-grid" id="stakingContainer">
+                <!-- Staking options loaded dynamically -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Send Modal -->
+    <div id="sendModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="sendModalLabel" tabindex="-1">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="sendModalLabel">Send Cryptocurrency</h2>
+                <button class="close-btn" onclick="closeSendModal()" aria-label="Close send dialog">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <form>
+                <div class="form-group">
+                    <label>Select Cryptocurrency</label>
+                    <select id="sendCrypto" required>
+                        <option value="">Choose a crypto...</option>
+                        <option value="bitcoin">Bitcoin (BTC)</option>
+                        <option value="ethereum">Ethereum (ETH)</option>
+                        <option value="litecoin">Litecoin (LTC)</option>
+                        <option value="ripple">XRP (XRP)</option>
+                        <option value="cardano">Cardano (ADA)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Recipient Address</label>
+                    <input type="text" id="sendAddress" placeholder="Enter wallet address" required>
+                </div>
+                <div class="form-group">
+                    <label>Amount</label>
+                    <input type="number" id="sendAmount" placeholder="0.00" step="0.00000001" required>
+                </div>
+                <div class="form-group">
+                    <label>Transaction Fee (Optional)</label>
+                    <select id="sendFee">
+                        <option value="low">Low - $0.50</option>
+                        <option value="medium" selected>Medium - $2.00</option>
+                        <option value="high">High - $5.00</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">
+                    <i class="fas fa-paper-plane" aria-hidden="true"></i> Send Transaction
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Receive Modal -->
+    <div id="receiveModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="receiveModalLabel" tabindex="-1">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="receiveModalLabel">Receive Cryptocurrency</h2>
+                <button class="close-btn" onclick="closeReceiveModal()" aria-label="Close receive dialog">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <form>
+                <div class="form-group">
+                    <label>Select Cryptocurrency</label>
+                    <select id="receiveCrypto" onchange="updateReceiveQRCode()" required>
+                        <option value="">Choose a crypto...</option>
+                        <option value="bitcoin">Bitcoin (BTC)</option>
+                        <option value="ethereum">Ethereum (ETH)</option>
+                        <option value="litecoin">Litecoin (LTC)</option>
+                        <option value="ripple">XRP (XRP)</option>
+                        <option value="cardano">Cardano (ADA)</option>
+                    </select>
+                </div>
+                <div class="qr-container">
+                    <div class="qr-code" id="qrCode">
+                        <i class="fas fa-qrcode" aria-hidden="true"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Your Wallet Address</label>
+                    <input type="text" id="receiveAddress" value="3J98t1WpEZ73CNmYviecrnyiWrnqRhWNLy" readonly>
+                </div>
+                <button type="button" class="btn-primary" style="width: 100%;" onclick="copyAddress()">
+                    <i class="fas fa-copy" aria-hidden="true"></i> Copy Address
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="settingsModalLabel" tabindex="-1">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="settingsModalLabel">Settings</h2>
+                <button class="close-btn" onclick="closeSettings()" aria-label="Close settings dialog">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="settings-grid">
+                <div class="setting-section">
+                    <h3>Security</h3>
+                    <div class="setting-item">
+                        <span>Two-Factor Auth</span>
+                        <div class="toggle-switch" id="toggle2FA" onclick="toggle2FA()" role="switch" aria-checked="false">
+                            <div class="slider"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span>Biometric Login</span>
+                        <div class="toggle-switch" id="toggleBiometric" onclick="toggleBiometric()" role="switch" aria-checked="false">
+                            <div class="slider"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-section">
+                    <h3>Notifications</h3>
+                    <div class="setting-item">
+                        <span>Price Alerts</span>
+                        <div class="toggle-switch active" id="togglePriceAlerts" onclick="togglePriceAlerts()" role="switch" aria-checked="true">
+                            <div class="slider"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span>Transaction Alerts</span>
+                        <div class="toggle-switch active" id="toggleTxAlerts" onclick="toggleTxAlerts()" role="switch" aria-checked="true">
+                            <div class="slider"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span>Admin Mode</span>
+                        <button id="toggleAdminMode" class="btn-secondary btn-small">Toggle Admin</button>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-secondary" style="width: 100%; margin-top: 1.5rem;">
+                <i class="fas fa-key" aria-hidden="true"></i> Change Password
+            </button>
+        </div>
+    </div>
+
+    <!-- CDN libs and app script -->
+    <!-- NOTE: SRI integrities added and crossorigin set to anonymous. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
+            integrity="sha512-6XZGwg3v5wN4I3XRqnIIdQHZ0Ub/bm903cNG+mO/MgRfGS7NOwdUz3Wop8y4j2Oge+qYliZea03J6ysfLDE+Jg=="
+            crossorigin="anonymous" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.3.0/chart.umd.min.js"
+            integrity="sha512-uJrO5sFivc5f7olb9Kuk6D/iyfdofCE7JPwtDcg89oTJ7YaPj1GdsNbvampni4K6piR60wU3SlX41Q/j2OGwXw=="
+            crossorigin="anonymous" defer></script>
+    <script src="assets/app.js" defer></script>
+</body>
+</html>
